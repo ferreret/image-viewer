@@ -39,6 +39,9 @@ class QtImageViewer(QGraphicsView):
     leftMouseButtonDoubleClicked = Signal(float, float)
     rightMouseButtonDoubleClicked = Signal(float, float)
 
+    # Image viewer modes
+    VIEWER_MODE, EDIT_MODE = list(range(2))
+
     # ------------------------------------------------------------------------------------------------------------------
     # Constructor
     def __init__(self):
@@ -71,6 +74,9 @@ class QtImageViewer(QGraphicsView):
         # Flags for enabling/disabling mouse interaction
         self.canZoom = True
         self.canPan = True
+
+        # Image viewer mode
+        self.mode = self.VIEWER_MODE
 
     # --------------------------------------------------------------------------------------------------------------
     # Functions
@@ -134,18 +140,23 @@ class QtImageViewer(QGraphicsView):
             self.zoomStack = []  # Clear the zoom stack (in case we got here because of an invalid zoom).
             self.fitInView(self.sceneRect(), self.aspectRatioMode)  # Show entire image (use current aspect ratio mode).
 
-    # --------------------------------------------------------------------------------------------------------------
-    def loadImageFromFile(self, fileName="") -> None:
-        """ Load an image from file.
-        Without any arguments, loadImageFromFile() will pop up a file dialog to choose the image file.
-        With a fileName argument, loadImageFromFile(fileName) will attempt to load the specified image file directly.
-        """
-        if len(fileName) == 0:
-            fileName, _ = QFileDialog.getOpenFileName(self, "Open image file.")
+    # Comento esta funcion porque me interesa sacar este diálogo fuera del visor
+    # # --------------------------------------------------------------------------------------------------------------
+    # def loadImageFromFile(self, fileName="") -> None:
+    #     """ Load an image from file.
+    #     Without any arguments, loadImageFromFile() will pop up a file dialog to choose the image file.
+    #     With a fileName argument, loadImageFromFile(fileName) will attempt to load the specified image file directly.
+    #     """
+    #     if len(fileName) == 0:
+    #         fileName, _ = QFileDialog.getOpenFileName(self, "Open image file.")
+    #
+    #     if len(fileName) and os.path.isfile(fileName):
+    #         image = QImage(fileName)
+    #         self.setImage(image)
 
-        if len(fileName) and os.path.isfile(fileName):
-            image = QImage(fileName)
-            self.setImage(image)
+    # ------------------------------------------------------------------------------------------------------------------
+    # EVENTS
+    # ------------------------------------------------------------------------------------------------------------------
 
     # --------------------------------------------------------------------------------------------------------------
     def resizeEvent(self, event: PySide6.QtGui.QResizeEvent) -> None:
@@ -227,6 +238,7 @@ if __name__ == "__main__":
     viewer.loadImageFromFile()
 
     # Handle left mouse clicks with custom slot
+    # noinspection PyUnresolvedReferences
     viewer.leftMouseButtonPressed.connect(handleLeftClick)
 
     # Show the viewer and run application
