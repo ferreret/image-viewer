@@ -1,14 +1,14 @@
 """
 QtImageViewer.py: PyQt image viewer widget for a QPixmap in a QGraphicsView scene with mouse zooming and panning.
 """
-import os.path
+import os
 import sys
 from typing import Optional, Any
 
 import PySide6
-from PySide6.QtCore import Signal, QRectF
-from PySide6.QtGui import Qt, QPixmap, QImage, QPainterPath
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QApplication, QFileDialog
+from PySide6.QtCore import Signal, QRectF, QSizeF
+from PySide6.QtGui import Qt, QPixmap, QImage, QPainterPath, QTransform, QBrush, QPen
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QApplication, QFileDialog, QGraphicsRectItem, QGraphicsItem
 
 __author__ = "NBL"
 __version__ = "1.0"
@@ -40,7 +40,7 @@ class QtImageViewer(QGraphicsView):
     rightMouseButtonDoubleClicked = Signal(float, float)
 
     # Image viewer modes
-    VIEWER_MODE, EDIT_MODE = list(range(2))
+    VIEWER_MODE, DESIGN_MODE = list(range(2))
 
     # ------------------------------------------------------------------------------------------------------------------
     # Constructor
@@ -76,7 +76,11 @@ class QtImageViewer(QGraphicsView):
         self.canPan = True
 
         # Image viewer mode
-        self.mode = self.VIEWER_MODE
+        self._mode = self.VIEWER_MODE
+
+        # Utilizo este valor para puntero del rectangulo que está activo para crearlo
+        self._current_rect_item = None
+        self._start_point = None
 
     # --------------------------------------------------------------------------------------------------------------
     # Functions
@@ -141,18 +145,26 @@ class QtImageViewer(QGraphicsView):
             self.fitInView(self.sceneRect(), self.aspectRatioMode)  # Show entire image (use current aspect ratio mode).
 
     # Comento esta funcion porque me interesa sacar este diálogo fuera del visor
-    # # --------------------------------------------------------------------------------------------------------------
-    # def loadImageFromFile(self, fileName="") -> None:
-    #     """ Load an image from file.
-    #     Without any arguments, loadImageFromFile() will pop up a file dialog to choose the image file.
-    #     With a fileName argument, loadImageFromFile(fileName) will attempt to load the specified image file directly.
-    #     """
-    #     if len(fileName) == 0:
-    #         fileName, _ = QFileDialog.getOpenFileName(self, "Open image file.")
-    #
-    #     if len(fileName) and os.path.isfile(fileName):
-    #         image = QImage(fileName)
-    #         self.setImage(image)
+    # --------------------------------------------------------------------------------------------------------------
+    def loadImageFromFile(self, fileName="") -> None:
+        """ Load an image from file.
+        Without any arguments, loadImageFromFile() will pop up a file dialog to choose the image file.
+        With a fileName argument, loadImageFromFile(fileName) will attempt to load the specified image file directly.
+        """
+        if len(fileName) == 0:
+            fileName, _ = QFileDialog.getOpenFileName(self, "Open image file.")
+
+        if len(fileName) and os.path.isfile(fileName):
+            image = QImage(fileName)
+            self.setImage(image)
+
+    # --------------------------------------------------------------------------------------------------------------
+    def setViewerMode(self):
+        self._mode = self.VIEWER_MODE
+
+    # --------------------------------------------------------------------------------------------------------------
+    def setDesignMode(self):
+        self._mode = self.DESIGN_MODE
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
@@ -167,29 +179,65 @@ class QtImageViewer(QGraphicsView):
         self.updateViewer()
 
     # --------------------------------------------------------------------------------------------------------------
-    # noinspection PyUnresolvedReferences
+
     def mousePressEvent(self, event: PySide6.QtGui.QMouseEvent) -> None:
         """ Start mouse pan or zoom mode """
         scenePos = self.mapToScene(event.position().toPoint())
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.canPan:
-                self.setDragMode(QGraphicsView.ScrollHandDrag)
-            self.leftMouseButtonPressed.emit(scenePos.x(), scenePos.y())
-        elif event.button() == Qt.MouseButton.RightButton:
+
+        if event.button() == Qt.RightButton:
             if self.canZoom:
                 self.setDragMode(QGraphicsView.RubberBandDrag)
+            # noinspection PyUnresolvedReferences
             self.rightMouseButtonPressed.emit(scenePos.x(), scenePos.y())
+        else:
+            if self._mode == self.VIEWER_MODE:
+                """Comportamiento en el caso de que estamos en modo visualización"""
+                if self.canPan:
+                    self.setDragMode(QGraphicsView.ScrollHandDrag)
+                # noinspection PyUnresolvedReferences
+                self.leftMouseButtonPressed.emit(scenePos.x(), scenePos.y())
+
+            elif self._mode == self.DESIGN_MODE and self.hasImage():
+                """Comportamiento en el caso de que estamos en modo diseño"""
+                # print(self.scene.itemAt(scenePos, QTransform()).type())
+                if self.scene.itemAt(scenePos, QTransform()) is not None \
+                        and self.scene.itemAt(scenePos, QTransform()).type() == 7:
+                    self._current_rect_item = QGraphicsRectItem()
+                    self._current_rect_item.setBrush(QBrush(Qt.red))
+                    self._current_rect_item.setPen(QPen(Qt.black))
+                    self._current_rect_item.setFlags(QGraphicsItem.ItemIsMovable
+                                                     | QGraphicsItem.ItemIsSelectable)
+
+                    self.scene.addItem(self._current_rect_item)
+                    self._start_point = scenePos
+                    print("Start point: ", self._start_point)
+                    rect = QRectF(self._start_point, QSizeF(0, 0))
+                    self._current_rect_item.setRect(rect)
+
         QGraphicsView.mousePressEvent(self, event)
 
     # --------------------------------------------------------------------------------------------------------------
-    # noinspection PyUnresolvedReferences
+    def mouseMoveEvent(self, event: PySide6.QtGui.QMouseEvent) -> None:
+        scenePos = self.mapToScene(event.position().toPoint())
+        # print("Mouse move: ", scenePos, "Event: ", event.position().toPoint())
+        if self._mode == self.DESIGN_MODE and self.hasImage():
+            if self._current_rect_item is not None:
+                if scenePos.x() < self._start_point.x() or scenePos.y() < self._start_point.y():
+                    rectSize = QSizeF(0, 0)
+                else:
+                    rectSize = QSizeF(scenePos.x() - self._start_point.x(),
+                                      scenePos.y() - self._start_point.y())
+                rect = QRectF(self._start_point, rectSize)
+
+                self._current_rect_item.setRect(rect)
+        QGraphicsView.mouseMoveEvent(self, event)
+
+    # --------------------------------------------------------------------------------------------------------------
     def mouseReleaseEvent(self, event: PySide6.QtGui.QMouseEvent) -> None:
         """ End mouse pan or zoom mode """
         scenePos = self.mapToScene(event.position().toPoint())
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.setDragMode(QGraphicsView.NoDrag)
-            self.leftMouseButtonReleased.emit(scenePos.x(), scenePos.y())
-        elif event.button() == Qt.MouseButton.RightButton:
+
+        if event.button() == Qt.MouseButton.RightButton:
             if self.canZoom:
                 viewBBox = self.zoomStack[-1] if len(self.zoomStack) else self.sceneRect()
                 selectionBBox = self.scene.selectionArea().boundingRect().intersected(viewBBox)
@@ -198,7 +246,17 @@ class QtImageViewer(QGraphicsView):
                     self.zoomStack.append(selectionBBox)
                     self.updateViewer()
             self.setDragMode(QGraphicsView.NoDrag)
+            # noinspection PyUnresolvedReferences
             self.rightMouseButtonReleased.emit(scenePos.x(), scenePos.y())
+        else:
+            if self._mode == self.VIEWER_MODE:
+                self.setDragMode(QGraphicsView.NoDrag)
+                # noinspection PyUnresolvedReferences
+                self.leftMouseButtonReleased.emit(scenePos.x(), scenePos.y())
+            elif self._mode == self.DESIGN_MODE:
+                self._current_rect_item = None
+
+        QGraphicsView.mouseReleaseEvent(self, event)
 
     # --------------------------------------------------------------------------------------------------------------
     # noinspection PyUnresolvedReferences
