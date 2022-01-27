@@ -80,4 +80,3 @@ class MainWindow(QMainWindow):
         if image is not None:
             self.viewer.setImage(image)
             self.statusBar().showMessage("Image loaded: " + name)
-

@@ -7,8 +7,10 @@ from typing import Optional, Any
 
 import PySide6
 from PySide6.QtCore import Signal, QRectF, QSizeF
-from PySide6.QtGui import Qt, QPixmap, QImage, QPainterPath, QTransform, QBrush, QPen
+from PySide6.QtGui import Qt, QPixmap, QImage, QPainterPath, QTransform, QBrush, QPen, QColor
 from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QApplication, QFileDialog, QGraphicsRectItem, QGraphicsItem
+
+from components.resize_rect import ResizableRect
 
 __author__ = "NBL"
 __version__ = "1.0"
@@ -50,6 +52,8 @@ class QtImageViewer(QGraphicsView):
         # Image is displayed as QPixmap in a QGraphicsScene attached to this QGraphicsView.
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
+        # noinspection PyUnresolvedReferences
+        self.scene.selectionChanged.connect(self.selectionChanged)
 
         # Store a local handle to the scene's current image pixmap.
         self._pixmapHandle = None
@@ -166,6 +170,22 @@ class QtImageViewer(QGraphicsView):
     def setDesignMode(self):
         self._mode = self.DESIGN_MODE
 
+    # --------------------------------------------------------------------------------------------------------------
+    # SIGNALS
+    # --------------------------------------------------------------------------------------------------------------
+    def selectionChanged(self):
+        """ Slot creado para pintar de color diferente los elementos seleccionados """
+        try:
+            for item in self.scene.items():
+                if isinstance(item, QGraphicsRectItem):
+                    if item.isSelected():
+                        item.setBrush(QBrush(QColor(255, 225, 98, 127)))
+                    else:
+                        item.setBrush(QBrush(QColor(255, 0, 0, 127)))
+        except Exception as e:
+            print("[ERROR] Error al cambiar el color de los elementos seleccionados")
+            print(e)
+
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
     # ------------------------------------------------------------------------------------------------------------------
@@ -202,9 +222,12 @@ class QtImageViewer(QGraphicsView):
                 # print(self.scene.itemAt(scenePos, QTransform()).type())
                 if self.scene.itemAt(scenePos, QTransform()) is not None \
                         and self.scene.itemAt(scenePos, QTransform()).type() == 7:
-                    self._current_rect_item = QGraphicsRectItem()
-                    self._current_rect_item.setBrush(QBrush(Qt.red))
-                    self._current_rect_item.setPen(QPen(Qt.black))
+                    self._current_rect_item = ResizableRect()
+                    self._current_rect_item.setBrush(QColor(255, 0, 0, 127))
+                    pen = QPen(Qt.red)
+                    pen.setCosmetic(True)
+                    pen.setWidth(3)
+                    self._current_rect_item.setPen(pen)
                     self._current_rect_item.setFlags(QGraphicsItem.ItemIsMovable
                                                      | QGraphicsItem.ItemIsSelectable)
 
@@ -272,6 +295,8 @@ class QtImageViewer(QGraphicsView):
             self.rightMouseButtonDoubleClicked.emit(scenePos.x(), scenePos.y())
 
         QGraphicsView.mouseDoubleClickEvent(self, event)
+
+    # --------------------------------------------------------------------------------------------------------------
 
 
 # --------------------------------------------------------------------------------------------------------------
