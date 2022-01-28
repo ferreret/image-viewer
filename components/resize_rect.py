@@ -1,6 +1,6 @@
 import typing
 
-from PySide6.QtCore import QRectF, QSize
+from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QPen, QBrush, QColor, QResizeEvent
 from PySide6.QtWidgets import (QApplication, QGraphicsView, QGraphicsScene,
                                QGraphicsItem, QGraphicsRectItem, QMainWindow,
@@ -19,16 +19,33 @@ class ResizableRect(QGraphicsRectItem):
         """ The mouse is pressed, start tracking movement. """
         self.click_pos = event.pos()
         rect = self.rect()
-        if abs(rect.left() - self.click_pos.x()) < 5:
+        if abs(rect.left() - self.click_pos.x()) < 5 and abs(rect.top() - self.click_pos.y()) < 5:
+            self.selected_edge = 'top_left'
+            QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
+        elif abs(rect.right() - self.click_pos.x()) < 5 and abs(rect.top() - self.click_pos.y()) < 5:
+            self.selected_edge = 'top_right'
+            QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
+        elif abs(rect.right() - self.click_pos.x()) < 5 and abs(rect.bottom() - self.click_pos.y()) < 5:
+            self.selected_edge = 'bottom_right'
+            QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
+        elif abs(rect.left() - self.click_pos.x()) < 5 and abs(rect.bottom() - self.click_pos.y()) < 5:
+            self.selected_edge = 'bottom_left'
+            QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
+        elif abs(rect.left() - self.click_pos.x()) < 5:
             self.selected_edge = 'left'
+            QApplication.setOverrideCursor(Qt.SizeHorCursor)
         elif abs(rect.right() - self.click_pos.x()) < 5:
             self.selected_edge = 'right'
+            QApplication.setOverrideCursor(Qt.SizeHorCursor)
         elif abs(rect.top() - self.click_pos.y()) < 5:
             self.selected_edge = 'top'
+            QApplication.setOverrideCursor(Qt.SizeVerCursor)
         elif abs(rect.bottom() - self.click_pos.y()) < 5:
             self.selected_edge = 'bottom'
+            QApplication.setOverrideCursor(Qt.SizeVerCursor)
         else:
             self.selected_edge = None
+
         self.click_pos = event.pos()
         self.click_rect = rect
         super().mousePressEvent(event)
@@ -46,6 +63,14 @@ class ResizableRect(QGraphicsRectItem):
         # Then adjust by the distance the mouse moved.
         if self.selected_edge is None:
             rect.translate(x_diff, y_diff)
+        elif self.selected_edge == 'top_left':
+            rect.adjust(x_diff, y_diff, 0, 0)
+        elif self.selected_edge == 'top_right':
+            rect.adjust(0, y_diff, x_diff, 0)
+        elif self.selected_edge == 'bottom_right':
+            rect.adjust(0, 0, x_diff, y_diff)
+        elif self.selected_edge == 'bottom_left':
+            rect.adjust(x_diff, 0, 0, y_diff)
         elif self.selected_edge == 'top':
             rect.adjust(0, y_diff, 0, 0)
         elif self.selected_edge == 'left':
@@ -100,6 +125,11 @@ class ResizableRect(QGraphicsRectItem):
         # Finally, update the rect that is now guaranteed to stay in bounds.
         self.setRect(rect)
 
+    def mouseReleaseEvent(self, event):
+        """ Stop tracking movement when the mouse is released. """
+        QApplication.restoreOverrideCursor()
+        super().mouseReleaseEvent(event)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -151,7 +181,7 @@ def main():
     window = MainWindow()
     window.show()
 
-    app.exec_()
+    app.exec()
 
 
 if __name__ == '__main__':

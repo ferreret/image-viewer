@@ -8,7 +8,8 @@ from typing import Optional, Any
 import PySide6
 from PySide6.QtCore import Signal, QRectF, QSizeF
 from PySide6.QtGui import Qt, QPixmap, QImage, QPainterPath, QTransform, QBrush, QPen, QColor
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QApplication, QFileDialog, QGraphicsRectItem, QGraphicsItem
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QApplication, QFileDialog, QGraphicsRectItem, \
+    QGraphicsItem, QMessageBox
 
 from components.resize_rect import ResizableRect
 
@@ -169,6 +170,22 @@ class QtImageViewer(QGraphicsView):
     # --------------------------------------------------------------------------------------------------------------
     def setDesignMode(self):
         self._mode = self.DESIGN_MODE
+
+    # --------------------------------------------------------------------------------------------------------------
+    def deleteSelectedItems(self):
+        """ Show a dialog to confirm deletion. """
+
+        if len(self.scene.selectedItems()) == 0:
+            return
+
+        reply = QMessageBox.question(self, "Confirm Deletion", "Delete selected items?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.No:
+            return
+
+        for item in self.scene.selectedItems():
+            if isinstance(item, QGraphicsRectItem):
+                self.scene.removeItem(item)
 
     # --------------------------------------------------------------------------------------------------------------
     # SIGNALS
